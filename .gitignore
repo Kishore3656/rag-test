@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets and Environment
+.env
+
+# RAG Data and Indexes
+faiss_index/
+chroma_db/
+
+# PDF Books (Usually large, better to keep out of git)
+*.pdf
