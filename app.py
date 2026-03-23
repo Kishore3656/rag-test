@@ -1,11 +1,12 @@
 import streamlit as st
 import os
+import glob
 from rag_engine import RAGEngine
 from dotenv import load_dotenv
 
 # Page configuration
 st.set_page_config(
-    page_title="ML Learning Assistant",
+    page_title="RAG Assistant",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,9 +34,6 @@ st.markdown("""
         color: #60a5fa !important;
         font-family: 'Inter', sans-serif;
     }
-    .sidebar .sidebar-content {
-        background-color: rgba(15, 23, 42, 0.8);
-    }
     .stButton>button {
         background-color: #3b82f6;
         color: white;
@@ -50,28 +48,33 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Load environment variables
 load_dotenv()
 
-def initialize_engine():
-    if "engine" not in st.session_state:
-        pdf_file = "Machine Learning By Thiru Book.pdf"
-        if not os.path.exists(pdf_file):
-            st.error(f"Error: {pdf_file} not found.")
-            return None
-        
+
+def get_available_pdfs():
+    return glob.glob("*.pdf")
+
+
+def initialize_engine(pdf_path: str):
+    """Initialize or re-initialize the RAG engine for a given PDF."""
+    engine_key = f"engine_{pdf_path}"
+    if engine_key not in st.session_state:
         try:
-            engine = RAGEngine(pdf_file)
+            persist_dir = f"./faiss_index_{os.path.splitext(os.path.basename(pdf_path))[0]}"
+            engine = RAGEngine(pdf_path, persist_directory=persist_dir)
             engine.initialize()
-            st.session_state.engine = engine
+            st.session_state[engine_key] = engine
         except Exception as e:
             st.error(f"Failed to initialize RAG Engine: {e}")
             return None
-    return st.session_state.engine
+    return st.session_state[engine_key]
+
 
 # Sidebar
 with st.sidebar:
     st.title("⚙️ Settings")
+
+    # API Key
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         st.warning("⚠️ GOOGLE_API_KEY missing!")
@@ -82,48 +85,58 @@ with st.sidebar:
             st.rerun()
     else:
         st.success("✅ API Key active")
-    
+
     st.divider()
-    st.info("""
-    **ML Learning Assistant**
-    
-    This tool uses RAG to help you learn Machine Learning from 'Machine Learning By Thiru Book'.
-    
-    Ask questions like:
-    - What is Supervised Learning?
-    - Explain Linear Regression.
-    - How does k-NN work?
-    """)
+
+    # PDF selection
+    pdfs = get_available_pdfs()
+    if pdfs:
+        selected_pdf = st.selectbox("📄 Select PDF", pdfs)
+    else:
+        st.error("No PDF files found in the project directory.")
+        selected_pdf = None
+
+    st.divider()
+
+    # Clear chat
+    if st.button("🗑️ Clear Chat"):
+        st.session_state.messages = []
+        st.rerun()
+
+    st.divider()
+    st.info("Ask questions about the selected PDF document. The assistant will find relevant passages and answer based on the content.")
+
 
 # Main Content
-st.title("🤖 Machine Learning Assistant")
-st.subheader("Your AI-powered study buddy for Thiru's ML Book")
+st.title("🤖 RAG Assistant")
+if selected_pdf:
+    st.subheader(f"Chatting with: `{selected_pdf}`")
 
 if not os.getenv("GOOGLE_API_KEY"):
-    st.info("Please provide your Gemini API Key in the sidebar or a .env file to get started.")
+    st.info("Please provide your Gemini API Key in the sidebar or a `.env` file to get started.")
+elif not selected_pdf:
+    st.warning("No PDF files found. Place a PDF in the project directory and restart.")
 else:
-    engine = initialize_engine()
-    
+    with st.spinner(f"Loading `{selected_pdf}`..."):
+        engine = initialize_engine(selected_pdf)
+
     if engine:
-        # Chat history
         if "messages" not in st.session_state:
             st.session_state.messages = []
 
-        # Display chat messages
+        # Display chat history
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
         # Chat input
-        if prompt := st.chat_input("Ask a question about Machine Learning..."):
-            # Add user message to history
+        if prompt := st.chat_input("Ask a question about the document..."):
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            # Generate assistant response
             with st.chat_message("assistant"):
-                with st.spinner("Searching book and thinking..."):
+                with st.spinner("Searching and thinking..."):
                     try:
                         response = engine.query(prompt)
                         st.markdown(response)
@@ -133,4 +146,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.caption("Powered by LangChain, ChromaDB, and Gemini 2.0 Flash")
+st.caption("Powered by LangChain, FAISS, and Gemini 2.0 Flash")

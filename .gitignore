@@ -5,7 +5,7 @@ build/
 dist/
 wheels/
 *.egg-info
-
+api.txt
 # Virtual environments
 .venv
 
@@ -13,7 +13,7 @@ wheels/
 .env
 
 # RAG Data and Indexes
-faiss_index/
+faiss_index*/
 chroma_db/
 
 # PDF Books (Usually large, better to keep out of git)

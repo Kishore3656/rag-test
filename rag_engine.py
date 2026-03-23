@@ -2,7 +2,8 @@ import os
 from dotenv import load_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
@@ -15,8 +16,10 @@ class RAGEngine:
     def __init__(self, pdf_path: str, persist_directory: str = "./faiss_index"):
         self.pdf_path = pdf_path
         self.persist_directory = persist_directory
-        self.embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        self.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0)
+        self.embeddings = HuggingFaceEmbeddings(
+            model_name="all-MiniLM-L6-v2"
+        )
+        self.llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0)
         self.vector_store = None
         self.retrieval_chain = None
 
@@ -48,10 +51,10 @@ class RAGEngine:
         retriever = self.vector_store.as_retriever(search_kwargs={"k": 5})
         
         system_prompt = (
-            "You are an assistant for question-answering tasks based on the provided Machine Learning book. "
+            "You are an assistant for question-answering tasks based on the provided document. "
             "Use the following pieces of retrieved context to answer the question. "
-            "If you don't know the answer, just say that you don't know. "
-            "Keep the answer concise and helpful for learning."
+            "If the answer is not in the context, say you don't know. "
+            "Keep the answer concise and helpful."
             "\n\n"
             "{context}"
         )
